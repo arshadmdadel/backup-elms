@@ -260,27 +260,28 @@ export default function DashboardPage() {
           <MaterialList materials={mockMaterials} courseId={selectedCourse} />
         </div>
 
-        {/* Right Column - Vertical Tabs (4/12 = 33%) */}
+        {/* Right Column - Horizontal Navbar Tabs (4/12 = 33%) */}
         <div className="w-1/3 glassmorphic flex flex-col overflow-hidden">
-          <Tabs defaultValue="chatbot" orientation="vertical" className="flex flex-col h-full">
-            <TabsList className="flex flex-col h-auto w-full p-2 space-y-2 glassmorphic flex-shrink-0">
+          <Tabs defaultValue="chatbot" className="flex flex-col h-full">
+            {/* Horizontal Navbar */}
+            <TabsList className="grid grid-cols-3 w-full p-1 glassmorphic flex-shrink-0 rounded-none border-b border-white/10">
               <TabsTrigger 
                 value="chatbot" 
-                className="w-full justify-start glassmorphic hover:glow-cyan data-[state=active]:glow-cyan"
+                className="glassmorphic hover:glow-cyan data-[state=active]:glow-cyan transition-all duration-200"
               >
                 <Bot className="w-4 h-4 mr-2" />
                 AI Assistant
               </TabsTrigger>
               <TabsTrigger 
                 value="calendar" 
-                className="w-full justify-start glassmorphic hover:glow-purple data-[state=active]:glow-purple"
+                className="glassmorphic hover:glow-purple data-[state=active]:glow-purple transition-all duration-200"
               >
                 <Calendar className="w-4 h-4 mr-2" />
                 Calendar
               </TabsTrigger>
               <TabsTrigger 
                 value="chat" 
-                className="w-full justify-start glassmorphic hover:glow-green data-[state=active]:glow-green"
+                className="glassmorphic hover:glow-green data-[state=active]:glow-green transition-all duration-200"
               >
                 <MessageCircle className="w-4 h-4 mr-2" />
                 Class Chat
@@ -288,15 +289,15 @@ export default function DashboardPage() {
             </TabsList>
             
             <div className="flex-1 overflow-hidden">
-              <TabsContent value="chatbot" className="h-full m-0 p-4">
+              <TabsContent value="chatbot" className="h-full m-0">
                 <ChatbotPanel />
               </TabsContent>
               
-              <TabsContent value="calendar" className="h-full m-0 p-4">
+              <TabsContent value="calendar" className="h-full m-0">
                 <CalendarPanel events={mockCalendarEvents} />
               </TabsContent>
               
-              <TabsContent value="chat" className="h-full m-0 p-4">
+              <TabsContent value="chat" className="h-full m-0">
                 <ClassChatPanel messages={mockChatMessages} currentUser={user.name} />
               </TabsContent>
             </div>

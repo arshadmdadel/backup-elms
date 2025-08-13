@@ -225,11 +225,11 @@ export function CalendarPanel({ events }: CalendarPanelProps) {
   return (
     <>
       <Card className="h-full glassmorphic flex flex-col">
-        <CardHeader className="p-4 border-b border-white/10 flex-shrink-0">
+        <CardHeader className="p-3 border-b border-white/10 flex-shrink-0">
           <div className="flex items-center space-x-2">
-            <CalendarDays className="w-5 h-5 text-purple-400" />
+            <CalendarDays className="w-4 h-4 text-purple-400" />
             <div>
-              <CardTitle className="text-sm font-medium text-foreground">Academic Calendar</CardTitle>
+              <CardTitle className="text-xs font-medium text-foreground">Academic Calendar</CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
                 Track deadlines and events
               </CardDescription>
@@ -237,107 +237,105 @@ export function CalendarPanel({ events }: CalendarPanelProps) {
           </div>
         </CardHeader>
         
-        <CardContent className="p-4 flex flex-col flex-1 overflow-hidden">
-          <div className="flex-1 overflow-y-auto">
-            <div className="min-h-full flex flex-col">
-              {/* Calendar Header */}
-              <div className="flex items-center justify-between mb-6 flex-shrink-0">
-                <h2 className="text-2xl font-semibold text-foreground">
-                  {selectedDate ? selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'August 2025'}
-                </h2>
-                <div className="flex items-center space-x-2">
-                  <button 
-                    className="p-2 hover:bg-accent rounded-md transition-colors"
-                    onClick={() => {
-                      const newDate = new Date(selectedDate || new Date())
-                      newDate.setMonth(newDate.getMonth() - 1)
-                      setSelectedDate(newDate)
-                    }}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                  <button 
-                    className="p-2 hover:bg-accent rounded-md transition-colors"
-                    onClick={() => {
-                      const newDate = new Date(selectedDate || new Date())
-                      newDate.setMonth(newDate.getMonth() + 1)
-                      setSelectedDate(newDate)
-                    }}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                </div>
+        <CardContent className="p-3 flex flex-col flex-1 overflow-hidden">
+          <div className="flex-1 flex flex-col min-h-0">
+            {/* Calendar Header */}
+            <div className="flex items-center justify-between mb-4 flex-shrink-0">
+              <h2 className="text-lg font-semibold text-foreground">
+                {selectedDate ? selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'August 2025'}
+              </h2>
+              <div className="flex items-center space-x-1">
+                <button 
+                  className="p-1.5 hover:bg-accent rounded-md transition-colors"
+                  onClick={() => {
+                    const newDate = new Date(selectedDate || new Date())
+                    newDate.setMonth(newDate.getMonth() - 1)
+                    setSelectedDate(newDate)
+                  }}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button 
+                  className="p-1.5 hover:bg-accent rounded-md transition-colors"
+                  onClick={() => {
+                    const newDate = new Date(selectedDate || new Date())
+                    newDate.setMonth(newDate.getMonth() + 1)
+                    setSelectedDate(newDate)
+                  }}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Calendar Grid */}
+            <div className="flex-1 flex flex-col min-h-0">
+              {/* Week Headers */}
+              <div className="grid grid-cols-7 gap-1 mb-2 flex-shrink-0">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                  <div key={day} className="h-6 flex items-center justify-center text-xs font-medium text-muted-foreground">
+                    {day}
+                  </div>
+                ))}
               </div>
 
-              {/* Calendar Grid */}
-              <div className="flex-1 min-h-0">
-                {/* Week Headers */}
-                <div className="grid grid-cols-7 gap-1 mb-2 flex-shrink-0">
-                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                    <div key={day} className="h-8 flex items-center justify-center text-sm font-medium text-muted-foreground">
-                      {day}
+              {/* Calendar Days - Square Grid */}
+              <div className="grid grid-cols-7 gap-1 flex-1">
+                {generateCalendarDays().map((day, index) => {
+                  const isToday = day && day.toDateString() === new Date().toDateString()
+                  const isSelected = day && selectedDate && day.toDateString() === selectedDate.toDateString()
+                  const hasDeadlineEvents = day && hasDeadlines(day)
+                  const hasRegularEventsOnly = day && hasRegularEvents(day) && !hasDeadlines(day)
+                  const dayEvents = day ? getEventsForDate(day) : []
+                  
+                  return (
+                    <div
+                      key={index}
+                      className={`
+                        relative aspect-square flex items-center justify-center text-xs cursor-pointer rounded transition-all duration-200
+                        ${!day ? 'invisible' : ''}
+                        ${day && day.getMonth() !== (selectedDate || new Date()).getMonth() ? 'text-muted-foreground opacity-50' : 'text-foreground'}
+                        ${isToday ? 'bg-blue-500 text-white font-semibold' : ''}
+                        ${isSelected && !isToday ? 'bg-accent text-accent-foreground' : ''}
+                        ${!isToday && !isSelected ? 'hover:bg-accent/50' : ''}
+                        ${hasDeadlineEvents ? 'deadline-glow' : ''}
+                        ${hasRegularEventsOnly ? 'event-glow' : ''}
+                      `}
+                      onClick={() => day && setSelectedDate(day)}
+                      onMouseEnter={(e) => {
+                        if (day) {
+                          handleMouseEnter(day, e)
+                        }
+                      }}
+                      onMouseLeave={handleMouseLeave}
+                    >
+                      {day && (
+                        <>
+                          <span>{day.getDate()}</span>
+                          {dayEvents.length > 0 && (
+                            <div className="absolute bottom-0.5 left-1/2 transform -translate-x-1/2 flex space-x-0.5">
+                              {dayEvents.slice(0, 3).map((_, i) => (
+                                <div 
+                                  key={i} 
+                                  className={`w-0.5 h-0.5 rounded-full ${
+                                    hasDeadlineEvents ? 'bg-red-400' : 'bg-yellow-400'
+                                  }`} 
+                                />
+                              ))}
+                              {dayEvents.length > 3 && (
+                                <div className="w-0.5 h-0.5 rounded-full bg-gray-400" />
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
-                  ))}
-                </div>
-
-                {/* Calendar Days */}
-                <div className="grid grid-cols-7 gap-1" style={{ minHeight: '300px' }}>
-                  {generateCalendarDays().map((day, index) => {
-                    const isToday = day && day.toDateString() === new Date().toDateString()
-                    const isSelected = day && selectedDate && day.toDateString() === selectedDate.toDateString()
-                    const hasDeadlineEvents = day && hasDeadlines(day)
-                    const hasRegularEventsOnly = day && hasRegularEvents(day) && !hasDeadlines(day)
-                    const dayEvents = day ? getEventsForDate(day) : []
-                    
-                    return (
-                      <div
-                        key={index}
-                        className={`
-                          relative h-12 flex items-center justify-center text-sm cursor-pointer rounded-md transition-all duration-200
-                          ${!day ? 'invisible' : ''}
-                          ${day && day.getMonth() !== (selectedDate || new Date()).getMonth() ? 'text-muted-foreground opacity-50' : 'text-foreground'}
-                          ${isToday ? 'bg-blue-500 text-white font-semibold' : ''}
-                          ${isSelected && !isToday ? 'bg-accent text-accent-foreground' : ''}
-                          ${!isToday && !isSelected ? 'hover:bg-accent/50' : ''}
-                          ${hasDeadlineEvents ? 'deadline-glow' : ''}
-                          ${hasRegularEventsOnly ? 'event-glow' : ''}
-                        `}
-                        onClick={() => day && setSelectedDate(day)}
-                        onMouseEnter={(e) => {
-                          if (day) {
-                            handleMouseEnter(day, e)
-                          }
-                        }}
-                        onMouseLeave={handleMouseLeave}
-                      >
-                        {day && (
-                          <>
-                            <span>{day.getDate()}</span>
-                            {dayEvents.length > 0 && (
-                              <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 flex space-x-0.5">
-                                {dayEvents.slice(0, 3).map((_, i) => (
-                                  <div 
-                                    key={i} 
-                                    className={`w-1 h-1 rounded-full ${
-                                      hasDeadlineEvents ? 'bg-red-400' : 'bg-yellow-400'
-                                    }`} 
-                                  />
-                                ))}
-                                {dayEvents.length > 3 && (
-                                  <div className="w-1 h-1 rounded-full bg-gray-400" />
-                                )}
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
+                  )
+                })}
               </div>
             </div>
           </div>
