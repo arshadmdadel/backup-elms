@@ -129,35 +129,69 @@ export const mockCalendarEvents: CalendarEvent[] = [
   {
     id: '1',
     title: 'React Assignment Due',
-    date: new Date('2024-03-16'),
+    date: new Date('2025-08-16'), // Today + 2 days
     type: 'assignment',
     courseId: '1'
   },
   {
     id: '2',
-    title: 'ML Midterm Exam',
-    date: new Date('2024-03-20'),
-    type: 'exam',
+    title: 'ML Project Deadline',
+    date: new Date('2025-08-18'), // Today + 4 days
+    type: 'assignment',
     courseId: '2'
   },
   {
     id: '3',
-    title: 'Database Design Workshop',
-    date: new Date('2024-03-18'),
-    type: 'class',
+    title: 'Database Final Exam',
+    date: new Date('2025-08-20'), // Today + 6 days
+    type: 'exam',
     courseId: '3'
   },
   {
     id: '4',
-    title: 'Project Team Meeting',
-    date: new Date('2024-03-17'),
-    type: 'meeting'
+    title: 'Security Midterm Exam',
+    date: new Date('2025-08-22'), // Today + 8 days
+    type: 'exam',
+    courseId: '4'
   },
   {
     id: '5',
+    title: 'Database Design Workshop',
+    date: new Date('2025-08-15'), // Tomorrow
+    type: 'class',
+    courseId: '3'
+  },
+  {
+    id: '6',
+    title: 'Project Team Meeting',
+    date: new Date('2025-08-17'), // Today + 3 days
+    type: 'meeting'
+  },
+  {
+    id: '7',
     title: 'Security Lab Session',
-    date: new Date('2024-03-22'),
+    date: new Date('2025-08-19'), // Today + 5 days
     type: 'class',
     courseId: '4'
+  },
+  {
+    id: '8',
+    title: 'Algorithm Assignment Due',
+    date: new Date('2025-08-21'), // Today + 7 days
+    type: 'assignment',
+    courseId: '1'
+  },
+  {
+    id: '9',
+    title: 'Study Group Meeting',
+    date: new Date('2025-08-14'), // Today
+    type: 'meeting'
+  },
+  {
+    id: '10',
+    title: 'Research Paper Due',
+    date: new Date('2025-08-25'), // Today + 11 days
+    type: 'assignment',
+    courseId: '2'
   }
 ];

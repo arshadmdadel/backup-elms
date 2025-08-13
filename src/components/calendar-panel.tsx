@@ -4,20 +4,158 @@ import { CalendarEvent } from '@/types'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Calendar } from "@/components/ui/calendar"
 import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { CalendarDays, Clock, BookOpen, FileText, Users, GraduationCap } from "lucide-react"
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 
 interface CalendarPanelProps {
   events: CalendarEvent[]
 }
 
+interface HoverPopupProps {
+  events: CalendarEvent[]
+  position: { x: number; y: number }
+}
+
+function HoverPopup({ events, position }: HoverPopupProps) {
+  if (events.length === 0) return null
+
+  const getEventIcon = (type: string) => {
+    switch (type) {
+      case 'assignment':
+        return <FileText className="w-3 h-3" />
+      case 'exam':
+        return <GraduationCap className="w-3 h-3" />
+      case 'class':
+        return <BookOpen className="w-3 h-3" />
+      case 'meeting':
+        return <Users className="w-3 h-3" />
+      default:
+        return <CalendarDays className="w-3 h-3" />
+    }
+  }
+
+  const getEventBadgeStyle = (type: string) => {
+    const styles = {
+      assignment: 'bg-red-500/20 text-red-400 border-red-500/30',
+      exam: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+      class: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+      meeting: 'bg-green-500/20 text-green-400 border-green-500/30'
+    }
+    return styles[type as keyof typeof styles] || 'bg-gray-500/20 text-gray-400'
+  }
+
+  const getDaysLeft = (eventDate: Date) => {
+    const today = new Date()
+    const diffTime = eventDate.getTime() - today.getTime()
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    
+    if (diffDays < 0) return `${Math.abs(diffDays)} days ago`
+    if (diffDays === 0) return 'Today'
+    if (diffDays === 1) return 'Tomorrow'
+    return `${diffDays} days left`
+  }
+
+  const getCourseName = (courseId?: string) => {
+    const courseNames: { [key: string]: string } = {
+      '1': 'Advanced React Development',
+      '2': 'Machine Learning Fundamentals', 
+      '3': 'Database Design & SQL',
+      '4': 'Cybersecurity Essentials'
+    }
+    return courseId ? courseNames[courseId] || 'Unknown Course' : 'General'
+  }
+
+  const formatEventMessage = (event: CalendarEvent) => {
+    const courseName = getCourseName(event.courseId)
+    const daysLeft = getDaysLeft(event.date)
+    
+    switch (event.type) {
+      case 'assignment':
+        return `Your ${courseName}'s assignment "${event.title}" deadline is ${event.date.toLocaleDateString()}! ${daysLeft} to submit it.`
+      case 'exam':
+        return `Your ${courseName}'s exam "${event.title}" is scheduled for ${event.date.toLocaleDateString()}! ${daysLeft} to prepare.`
+      case 'class':
+        return `${courseName} class "${event.title}" is scheduled for ${event.date.toLocaleDateString()}. ${daysLeft}.`
+      case 'meeting':
+        return `"${event.title}" meeting is scheduled for ${event.date.toLocaleDateString()}. ${daysLeft}.`
+      default:
+        return `"${event.title}" is scheduled for ${event.date.toLocaleDateString()}. ${daysLeft}.`
+    }
+  }
+
+  const popupContent = (
+    <div 
+      className="fixed z-[9999] glassmorphic border border-white/20 rounded-lg p-4 max-w-sm shadow-xl pointer-events-none"
+      style={{ 
+        left: Math.min(position.x + 10, (typeof window !== 'undefined' ? window.innerWidth : 1200) - 350), 
+        top: Math.max(position.y - 10, 10),
+        transform: position.y > 200 ? 'translateY(-100%)' : 'none'
+      }}
+    >
+      <div className="space-y-3">
+        {events.map((event, index) => (
+          <div key={index} className="bg-white/5 rounded-lg p-3 border border-white/10">
+            <div className="flex items-start space-x-2 mb-2">
+              <div className="flex-shrink-0 mt-0.5">
+                {getEventIcon(event.type)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center space-x-2 mb-1">
+                  <span className="text-sm font-medium text-foreground">{event.title}</span>
+                  <Badge className={`glassmorphic text-xs ${getEventBadgeStyle(event.type)}`}>
+                    {event.type}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {formatEventMessage(event)}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
+  // Use portal to render outside of component tree to avoid z-index issues
+  return typeof document !== 'undefined' ? createPortal(popupContent, document.body) : null
+}
+
 /**
  * CalendarPanel component displays a monthly calendar with highlighted assignment deadlines
- * and upcoming events with different colors based on event type
+ * and upcoming events with different glowing borders based on event type
  */
 export function CalendarPanel({ events }: CalendarPanelProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
+  const [hoveredDate, setHoveredDate] = useState<Date | null>(null)
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+
+  const generateCalendarDays = (): (Date | null)[] => {
+    const currentMonth = selectedDate || new Date()
+    const year = currentMonth.getFullYear()
+    const month = currentMonth.getMonth()
+    
+    // First day of the month
+    const firstDay = new Date(year, month, 1)
+    // Last day of the month
+    const lastDay = new Date(year, month + 1, 0)
+    
+    // Start from the Sunday of the week containing the first day
+    const startDate = new Date(firstDay)
+    startDate.setDate(startDate.getDate() - startDate.getDay())
+    
+    // Generate 42 days (6 weeks)
+    const days: (Date | null)[] = []
+    const currentDate = new Date(startDate)
+    
+    for (let i = 0; i < 42; i++) {
+      days.push(new Date(currentDate))
+      currentDate.setDate(currentDate.getDate() + 1)
+    }
+    
+    return days
+  }
 
   const getEventIcon = (type: string) => {
     switch (type) {
@@ -51,100 +189,164 @@ export function CalendarPanel({ events }: CalendarPanelProps) {
   }
 
   const selectedDateEvents = selectedDate ? getEventsForDate(selectedDate) : []
+  const hoveredDateEvents = hoveredDate ? getEventsForDate(hoveredDate) : []
 
   const hasEvents = (date: Date) => {
     return events.some(event => event.date.toDateString() === date.toDateString())
   }
 
-  return (
-    <Card className="h-full glassmorphic flex flex-col">
-      <CardHeader className="p-4 border-b border-white/10 flex-shrink-0">
-        <div className="flex items-center space-x-2">
-          <CalendarDays className="w-5 h-5 text-purple-400" />
-          <div>
-            <CardTitle className="text-sm font-medium text-foreground">Academic Calendar</CardTitle>
-            <CardDescription className="text-xs text-muted-foreground">
-              Track deadlines and events
-            </CardDescription>
-          </div>
-        </div>
-      </CardHeader>
-      
-      <CardContent className="p-4 flex flex-col flex-1 overflow-hidden">
-        <div className="mb-4 flex-shrink-0">
-          <Calendar
-            mode="single"
-            selected={selectedDate}
-            onSelect={setSelectedDate}
-            className="rounded-md border-none"
-            classNames={{
-              months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-              month: "space-y-4",
-              caption: "flex justify-center pt-1 relative items-center",
-              caption_label: "text-sm font-medium text-foreground",
-              nav: "space-x-1 flex items-center",
-              nav_button: "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 glassmorphic",
-              nav_button_previous: "absolute left-1",
-              nav_button_next: "absolute right-1",
-              table: "w-full border-collapse space-y-1",
-              head_row: "flex",
-              head_cell: "text-muted-foreground rounded-md w-8 font-normal text-[0.8rem]",
-              row: "flex w-full mt-2",
-              cell: `relative p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-accent [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected].day-range-end)]:rounded-r-md`,
-              day: `h-8 w-8 p-0 font-normal aria-selected:opacity-100 glassmorphic text-xs ${hasEvents(selectedDate || new Date()) ? 'bg-purple-500/20 text-purple-400' : ''}`,
-              day_range_end: "day-range-end",
-              day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-              day_today: "bg-accent text-accent-foreground",
-              day_outside: "day-outside text-muted-foreground opacity-50 aria-selected:bg-accent/50 aria-selected:text-muted-foreground aria-selected:opacity-30",
-              day_disabled: "text-muted-foreground opacity-50",
-              day_range_middle: "aria-selected:bg-accent aria-selected:text-accent-foreground",
-              day_hidden: "invisible",
-            }}
-            modifiers={{
-              hasEvents: (date) => hasEvents(date)
-            }}
-            modifiersClassNames={{
-              hasEvents: "bg-purple-500/30 text-purple-300 font-semibold"
-            }}
-          />
-        </div>
+  const hasDeadlines = (date: Date) => {
+    return events.some(event => 
+      event.date.toDateString() === date.toDateString() && 
+      (event.type === 'assignment' || event.type === 'exam')
+    )
+  }
 
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <h3 className="text-sm font-medium text-foreground mb-3 flex-shrink-0">
-            {selectedDate ? `Events for ${selectedDate.toDateString()}` : 'Select a date'}
-          </h3>
-          
-          <div className="flex-1 overflow-y-auto">
-            {selectedDateEvents.length > 0 ? (
-              <div className="space-y-2 pr-2">
-                {selectedDateEvents.map((event) => (
-                  <div
-                    key={event.id}
-                    className="glassmorphic p-3 rounded-lg border border-white/10 hover:glow-purple transition-all duration-300"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className="text-sm font-medium text-foreground">{event.title}</h4>
-                      <Badge className={`glassmorphic ${getEventBadgeStyle(event.type)}`}>
-                        {getEventIcon(event.type)}
-                        <span className="ml-1 text-xs">{event.type}</span>
-                      </Badge>
-                    </div>
-                    <div className="flex items-center text-xs text-muted-foreground">
-                      <Clock className="w-3 h-3 mr-1" />
-                      {event.date.toLocaleDateString()}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <CalendarDays className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">No events scheduled</p>
-              </div>
-            )}
+  const hasRegularEvents = (date: Date) => {
+    return events.some(event => 
+      event.date.toDateString() === date.toDateString() && 
+      (event.type === 'class' || event.type === 'meeting')
+    )
+  }
+
+  const handleMouseEnter = (date: Date, event: React.MouseEvent) => {
+    const dayEvents = getEventsForDate(date)
+    
+    if (dayEvents.length > 0) {
+      setHoveredDate(date)
+      setMousePosition({ x: event.clientX, y: event.clientY })
+    }
+  }
+
+  const handleMouseLeave = () => {
+    setHoveredDate(null)
+  }
+
+  return (
+    <>
+      <Card className="h-full glassmorphic flex flex-col">
+        <CardHeader className="p-4 border-b border-white/10 flex-shrink-0">
+          <div className="flex items-center space-x-2">
+            <CalendarDays className="w-5 h-5 text-purple-400" />
+            <div>
+              <CardTitle className="text-sm font-medium text-foreground">Academic Calendar</CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
+                Track deadlines and events
+              </CardDescription>
+            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardHeader>
+        
+        <CardContent className="p-4 flex flex-col flex-1 overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
+            <div className="min-h-full flex flex-col">
+              {/* Calendar Header */}
+              <div className="flex items-center justify-between mb-6 flex-shrink-0">
+                <h2 className="text-2xl font-semibold text-foreground">
+                  {selectedDate ? selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'August 2025'}
+                </h2>
+                <div className="flex items-center space-x-2">
+                  <button 
+                    className="p-2 hover:bg-accent rounded-md transition-colors"
+                    onClick={() => {
+                      const newDate = new Date(selectedDate || new Date())
+                      newDate.setMonth(newDate.getMonth() - 1)
+                      setSelectedDate(newDate)
+                    }}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button 
+                    className="p-2 hover:bg-accent rounded-md transition-colors"
+                    onClick={() => {
+                      const newDate = new Date(selectedDate || new Date())
+                      newDate.setMonth(newDate.getMonth() + 1)
+                      setSelectedDate(newDate)
+                    }}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Calendar Grid */}
+              <div className="flex-1 min-h-0">
+                {/* Week Headers */}
+                <div className="grid grid-cols-7 gap-1 mb-2 flex-shrink-0">
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                    <div key={day} className="h-8 flex items-center justify-center text-sm font-medium text-muted-foreground">
+                      {day}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Calendar Days */}
+                <div className="grid grid-cols-7 gap-1" style={{ minHeight: '300px' }}>
+                  {generateCalendarDays().map((day, index) => {
+                    const isToday = day && day.toDateString() === new Date().toDateString()
+                    const isSelected = day && selectedDate && day.toDateString() === selectedDate.toDateString()
+                    const hasDeadlineEvents = day && hasDeadlines(day)
+                    const hasRegularEventsOnly = day && hasRegularEvents(day) && !hasDeadlines(day)
+                    const dayEvents = day ? getEventsForDate(day) : []
+                    
+                    return (
+                      <div
+                        key={index}
+                        className={`
+                          relative h-12 flex items-center justify-center text-sm cursor-pointer rounded-md transition-all duration-200
+                          ${!day ? 'invisible' : ''}
+                          ${day && day.getMonth() !== (selectedDate || new Date()).getMonth() ? 'text-muted-foreground opacity-50' : 'text-foreground'}
+                          ${isToday ? 'bg-blue-500 text-white font-semibold' : ''}
+                          ${isSelected && !isToday ? 'bg-accent text-accent-foreground' : ''}
+                          ${!isToday && !isSelected ? 'hover:bg-accent/50' : ''}
+                          ${hasDeadlineEvents ? 'deadline-glow' : ''}
+                          ${hasRegularEventsOnly ? 'event-glow' : ''}
+                        `}
+                        onClick={() => day && setSelectedDate(day)}
+                        onMouseEnter={(e) => {
+                          if (day) {
+                            handleMouseEnter(day, e)
+                          }
+                        }}
+                        onMouseLeave={handleMouseLeave}
+                      >
+                        {day && (
+                          <>
+                            <span>{day.getDate()}</span>
+                            {dayEvents.length > 0 && (
+                              <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 flex space-x-0.5">
+                                {dayEvents.slice(0, 3).map((_, i) => (
+                                  <div 
+                                    key={i} 
+                                    className={`w-1 h-1 rounded-full ${
+                                      hasDeadlineEvents ? 'bg-red-400' : 'bg-yellow-400'
+                                    }`} 
+                                  />
+                                ))}
+                                {dayEvents.length > 3 && (
+                                  <div className="w-1 h-1 rounded-full bg-gray-400" />
+                                )}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      
+      {hoveredDate && hoveredDateEvents.length > 0 && (
+        <HoverPopup events={hoveredDateEvents} position={mousePosition} />
+      )}
+    </>
   )
 }

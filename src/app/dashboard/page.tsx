@@ -246,8 +246,8 @@ export default function DashboardPage() {
 
       {/* Desktop 3-Column Layout */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Column - Course List */}
-        <div className="w-80 border-r border-white/10 glassmorphic flex flex-col overflow-hidden">
+        {/* Left Column - Course List (3/12 = 25%) */}
+        <div className="w-1/4 border-r border-white/10 glassmorphic flex flex-col overflow-hidden">
           <CourseList 
             courses={mockCourses} 
             selectedCourseId={selectedCourse}
@@ -255,13 +255,13 @@ export default function DashboardPage() {
           />
         </div>
 
-        {/* Middle Column - Materials */}
+        {/* Middle Column - Materials (5/12 = ~42%) */}
         <div className="flex-1 border-r border-white/10 flex flex-col overflow-hidden">
           <MaterialList materials={mockMaterials} courseId={selectedCourse} />
         </div>
 
-        {/* Right Column - Vertical Tabs */}
-        <div className="w-80 glassmorphic flex flex-col overflow-hidden">
+        {/* Right Column - Vertical Tabs (4/12 = 33%) */}
+        <div className="w-1/3 glassmorphic flex flex-col overflow-hidden">
           <Tabs defaultValue="chatbot" orientation="vertical" className="flex flex-col h-full">
             <TabsList className="flex flex-col h-auto w-full p-2 space-y-2 glassmorphic flex-shrink-0">
               <TabsTrigger 
