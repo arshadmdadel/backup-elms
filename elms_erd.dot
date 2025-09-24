@@ -1,0 +1,53 @@
+digraph ERD {
+    graph [splines=ortho, rankdir=LR];
+    node [shape=record, fontsize=10, fontname="Helvetica", style=filled, fillcolor=lightgray];
+
+    users [label="{ users | id PK | name | email UNIQUE | password_hash | role (student,teacher,admin) | avatar_url | created_at | updated_at }"];
+    courses [label="{ courses | id PK | title | description | color | created_at | updated_at }"];
+    sections [label="{ sections | id PK | course_id FK | teacher_id FK | name | semester | created_at | updated_at }"];
+    enrollments [label="{ enrollments | id PK | user_id FK | section_id FK | enrolled_at }"];
+
+    announcements [label="{ announcements | id PK | section_id FK | title | content | created_at }"];
+    materials [label="{ materials | id PK | section_id FK | title | type (pdf,doc,video) | url | upload_date | size }"];
+    assignments [label="{ assignments | id PK | section_id FK | title | description | due_date | total_marks }"];
+    submissions [label="{ submissions | id PK | assignment_id FK | student_id FK | file_url | submitted_at | grade }"];
+
+    calendar_events [label="{ calendar_events | id PK | section_id FK | title | date | type (assignment,exam,meeting,class) | created_at }"];
+
+    chat_rooms [label="{ chat_rooms | id PK | section_id FK | name }"];
+    chat_messages [label="{ chat_messages | id PK | room_id FK | sender_id FK | message | timestamp }"];
+
+    notifications [label="{ notifications | id PK | user_id FK | type (assignment_due,event,reminder,grade,post) | message | read_status | created_at }"];
+
+    ai_user_context [label="{ ai_user_context | user_id PK/FK | context_json | updated_at }"];
+    ai_interactions [label="{ ai_interactions | id PK | user_id FK | query | response | created_at }"];
+
+    progress [label="{ progress | id PK | student_id FK | section_id FK | completion_percentage | last_accessed }"];
+
+    # Relationships
+    users -> enrollments [label="1-to-many"];
+    sections -> enrollments [label="1-to-many"];
+
+    courses -> sections [label="1-to-many"];
+    users -> sections [label="teacher_id"];
+    
+    sections -> announcements [label="1-to-many"];
+    sections -> materials [label="1-to-many"];
+    sections -> assignments [label="1-to-many"];
+    assignments -> submissions [label="1-to-many"];
+    users -> submissions [label="student_id"];
+
+    sections -> calendar_events [label="1-to-many"];
+
+    sections -> chat_rooms [label="1-to-1"];
+    chat_rooms -> chat_messages [label="1-to-many"];
+    users -> chat_messages [label="sender"];
+
+    users -> notifications [label="1-to-many"];
+
+    users -> ai_user_context [label="1-to-1"];
+    users -> ai_interactions [label="1-to-many"];
+
+    users -> progress [label="1-to-many"];
+    sections -> progress [label="1-to-many"];
+}
