@@ -16,7 +16,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuLabel
 } from "@/components/ui/dropdown-menu"
-// AlertDialog component not available, using window.confirm
 import { ThemeToggle } from "@/components/theme-toggle"
 import { User } from "@/types"
 import { 
@@ -34,8 +33,29 @@ import {
   School,
   Calendar,
   UserCheck,
-  UserX
+  UserX,
+  Check,
+  X,
+  Activity,
+  BarChart3,
+  TrendingUp,
+  Clock
 } from "lucide-react"
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from 'recharts'
 
 // Mock data for admin
 const mockCourses = [
@@ -45,7 +65,11 @@ const mockCourses = [
     sections: ['CSE-401-A', 'CSE-401-B'],
     teachers: ['Dr. Sarah Johnson', 'Prof. Michael Chen'],
     totalStudents: 83,
-    color: 'from-cyan-500/20 to-blue-500/20'
+    color: 'from-cyan-500/20 to-blue-500/20',
+    sectionStudents: [
+      { section: 'CSE-401-A', students: 45 },
+      { section: 'CSE-401-B', students: 38 }
+    ]
   },
   {
     id: '2',
@@ -53,7 +77,11 @@ const mockCourses = [
     sections: ['CSE-402-A', 'CSE-402-B'],
     teachers: ['Prof. Michael Chen', 'Dr. Emily Davis'],
     totalStudents: 76,
-    color: 'from-purple-500/20 to-pink-500/20'
+    color: 'from-purple-500/20 to-pink-500/20',
+    sectionStudents: [
+      { section: 'CSE-402-A', students: 42 },
+      { section: 'CSE-402-B', students: 34 }
+    ]
   },
   {
     id: '3',
@@ -61,7 +89,12 @@ const mockCourses = [
     sections: ['CSE-301-A', 'CSE-301-B', 'CSE-301-C'],
     teachers: ['Dr. Sarah Johnson', 'Prof. Robert Wilson'],
     totalStudents: 124,
-    color: 'from-green-500/20 to-emerald-500/20'
+    color: 'from-green-500/20 to-emerald-500/20',
+    sectionStudents: [
+      { section: 'CSE-301-A', students: 45 },
+      { section: 'CSE-301-B', students: 42 },
+      { section: 'CSE-301-C', students: 37 }
+    ]
   }
 ]
 
@@ -79,12 +112,55 @@ const mockStudents = [
   { id: '4', name: 'David Wilson', email: 'david@student.elms.edu', courses: 3, section: 'CSE-401-B' }
 ]
 
+// Mock activity logs
+const mockActivityLogs = [
+  { id: 1, user: 'Admin', action: 'Created course', target: 'Advanced React Development', time: '2 hours ago', type: 'create' },
+  { id: 2, user: 'Admin', action: 'Assigned teacher', target: 'Dr. Sarah Johnson to CSE-401-A', time: '3 hours ago', type: 'assign' },
+  { id: 3, user: 'Admin', action: 'Enrolled student', target: 'Alice Johnson in CSE-401-A', time: '5 hours ago', type: 'enroll' },
+  { id: 4, user: 'Admin', action: 'Updated course', target: 'Machine Learning Fundamentals', time: '1 day ago', type: 'update' },
+  { id: 5, user: 'Admin', action: 'Removed student', target: 'John Doe from CSE-301-B', time: '2 days ago', type: 'remove' },
+  { id: 6, user: 'Admin', action: 'Created section', target: 'CSE-301-C', time: '3 days ago', type: 'create' },
+  { id: 7, user: 'Admin', action: 'Assigned teacher', target: 'Prof. Robert Wilson to CSE-301-C', time: '3 days ago', type: 'assign' }
+]
+
+// Mock data for charts
+const courseGrowthData = [
+  { month: 'Jan', courses: 12, students: 280 },
+  { month: 'Feb', courses: 14, students: 320 },
+  { month: 'Mar', courses: 15, students: 380 },
+  { month: 'Apr', courses: 18, students: 420 },
+  { month: 'May', courses: 20, students: 460 },
+  { month: 'Jun', courses: 22, students: 510 }
+]
+
+const teacherLoadData = [
+  { name: 'Dr. Sarah', load: 97 },
+  { name: 'Prof. Michael', load: 76 },
+  { name: 'Dr. Emily', load: 38 },
+  { name: 'Prof. Robert', load: 52 }
+]
+
+const COLORS = ['#06b6d4', '#a855f7', '#10b981', '#f59e0b']
+
 export default function AdminDashboardPage() {
   const [user, setUser] = useState<User | null>(null)
   const [newCourseName, setNewCourseName] = useState('')
   const [newSectionName, setNewSectionName] = useState('')
   const [selectedCourse, setSelectedCourse] = useState('')
+  const [selectedChartCourse, setSelectedChartCourse] = useState('1')
   const router = useRouter()
+
+  // Inline editing states
+  const [editingCourse, setEditingCourse] = useState<string | null>(null)
+  const [editingTeacher, setEditingTeacher] = useState<string | null>(null)
+  const [editingStudent, setEditingStudent] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState('')
+
+  // Local state for courses, teachers, students to enable editing
+  const [courses, setCourses] = useState(mockCourses)
+  const [teachers, setTeachers] = useState(mockTeachers)
+  const [students, setStudents] = useState(mockStudents)
+  const [activityLogs, setActivityLogs] = useState(mockActivityLogs)
 
   useEffect(() => {
     // Check authentication
@@ -110,14 +186,137 @@ export default function AdminDashboardPage() {
 
   const handleCreateCourse = (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('Creating course:', newCourseName)
+    const newCourse = {
+      id: String(courses.length + 1),
+      title: newCourseName,
+      sections: [],
+      teachers: [],
+      totalStudents: 0,
+      color: 'from-yellow-500/20 to-red-500/20',
+      sectionStudents: []
+    }
+    setCourses([...courses, newCourse])
+    
+    // Add to activity log
+    const newLog = {
+      id: activityLogs.length + 1,
+      user: 'Admin',
+      action: 'Created course',
+      target: newCourseName,
+      time: 'Just now',
+      type: 'create'
+    }
+    setActivityLogs([newLog, ...activityLogs])
+    
     setNewCourseName('')
   }
 
   const handleCreateSection = (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('Creating section:', newSectionName, 'for course:', selectedCourse)
+    const courseIndex = courses.findIndex(c => c.id === selectedCourse)
+    if (courseIndex !== -1) {
+      const updatedCourses = [...courses]
+      updatedCourses[courseIndex].sections.push(newSectionName)
+      setCourses(updatedCourses)
+      
+      // Add to activity log
+      const newLog = {
+        id: activityLogs.length + 1,
+        user: 'Admin',
+        action: 'Created section',
+        target: newSectionName,
+        time: 'Just now',
+        type: 'create'
+      }
+      setActivityLogs([newLog, ...activityLogs])
+    }
     setNewSectionName('')
+  }
+
+  // Inline editing functions
+  const startEditCourse = (courseId: string, currentTitle: string) => {
+    setEditingCourse(courseId)
+    setEditValue(currentTitle)
+  }
+
+  const saveEditCourse = (courseId: string) => {
+    const updatedCourses = courses.map(c => 
+      c.id === courseId ? { ...c, title: editValue } : c
+    )
+    setCourses(updatedCourses)
+    
+    // Add to activity log
+    const newLog = {
+      id: activityLogs.length + 1,
+      user: 'Admin',
+      action: 'Updated course',
+      target: editValue,
+      time: 'Just now',
+      type: 'update'
+    }
+    setActivityLogs([newLog, ...activityLogs])
+    
+    setEditingCourse(null)
+    setEditValue('')
+  }
+
+  const startEditTeacher = (teacherId: string, currentName: string) => {
+    setEditingTeacher(teacherId)
+    setEditValue(currentName)
+  }
+
+  const saveEditTeacher = (teacherId: string) => {
+    const updatedTeachers = teachers.map(t => 
+      t.id === teacherId ? { ...t, name: editValue } : t
+    )
+    setTeachers(updatedTeachers)
+    
+    // Add to activity log
+    const newLog = {
+      id: activityLogs.length + 1,
+      user: 'Admin',
+      action: 'Updated teacher',
+      target: editValue,
+      time: 'Just now',
+      type: 'update'
+    }
+    setActivityLogs([newLog, ...activityLogs])
+    
+    setEditingTeacher(null)
+    setEditValue('')
+  }
+
+  const startEditStudent = (studentId: string, currentName: string) => {
+    setEditingStudent(studentId)
+    setEditValue(currentName)
+  }
+
+  const saveEditStudent = (studentId: string) => {
+    const updatedStudents = students.map(s => 
+      s.id === studentId ? { ...s, name: editValue } : s
+    )
+    setStudents(updatedStudents)
+    
+    // Add to activity log
+    const newLog = {
+      id: activityLogs.length + 1,
+      user: 'Admin',
+      action: 'Updated student',
+      target: editValue,
+      time: 'Just now',
+      type: 'update'
+    }
+    setActivityLogs([newLog, ...activityLogs])
+    
+    setEditingStudent(null)
+    setEditValue('')
+  }
+
+  const cancelEdit = () => {
+    setEditingCourse(null)
+    setEditingTeacher(null)
+    setEditingStudent(null)
+    setEditValue('')
   }
 
   if (!user) {
@@ -185,7 +384,7 @@ export default function AdminDashboardPage() {
       {/* Main Content */}
       <div className="flex-1 p-6 overflow-y-auto">
         <Tabs defaultValue="courses" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 glassmorphic">
+          <TabsList className="grid w-full grid-cols-6 glassmorphic">
             <TabsTrigger value="courses" className="glassmorphic hover:glow-cyan">
               <BookOpen className="w-4 h-4 mr-2" />
               Courses
@@ -201,6 +400,14 @@ export default function AdminDashboardPage() {
             <TabsTrigger value="assignments" className="glassmorphic hover:glow-yellow">
               <UserPlus className="w-4 h-4 mr-2" />
               Assignments
+            </TabsTrigger>
+            <TabsTrigger value="reports" className="glassmorphic hover:glow-blue">
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Reports
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="glassmorphic hover:glow-orange">
+              <Activity className="w-4 h-4 mr-2" />
+              Activity
             </TabsTrigger>
           </TabsList>
 
@@ -251,12 +458,12 @@ export default function AdminDashboardPage() {
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" className="w-full justify-between glassmorphic">
-                          {selectedCourse ? mockCourses.find(c => c.id === selectedCourse)?.title : "Select Course"}
+                          {selectedCourse ? courses.find(c => c.id === selectedCourse)?.title : "Select Course"}
                           <Edit className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent className="glassmorphic w-full">
-                        {mockCourses.map((course) => (
+                        {courses.map((course) => (
                           <DropdownMenuItem
                             key={course.id}
                             onClick={() => setSelectedCourse(course.id)}
@@ -282,38 +489,86 @@ export default function AdminDashboardPage() {
               </Card>
             </div>
 
-            {/* Existing Courses */}
+            {/* Existing Courses with Inline Editing */}
             <Card className="glassmorphic">
               <CardHeader>
                 <CardTitle>Existing Courses</CardTitle>
                 <CardDescription>
-                  {mockCourses.length} courses with {mockCourses.reduce((acc, course) => acc + course.sections.length, 0)} sections
+                  {courses.length} courses with {courses.reduce((acc, course) => acc + course.sections.length, 0)} sections
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {mockCourses.map((course) => (
+                  {courses.map((course) => (
                     <div key={course.id} className="glassmorphic p-4 rounded-lg">
                       <div className={`w-full h-2 bg-gradient-to-r ${course.color} rounded-full mb-3`} />
                       <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-semibold text-foreground">{course.title}</h3>
-                        <div className="flex space-x-2">
-                          <Button variant="ghost" size="sm" className="glassmorphic hover:glow-blue">
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="glassmorphic hover:glow-red"
-                            onClick={() => {
-                              if (window.confirm(`Are you sure you want to delete "${course.title}"? This action cannot be undone.`)) {
-                                console.log('Deleting course:', course.id)
-                              }
-                            }}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
+                        {editingCourse === course.id ? (
+                          <div className="flex items-center space-x-2 flex-1">
+                            <Input
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              className="glassmorphic border-white/20"
+                              autoFocus
+                            />
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => saveEditCourse(course.id)}
+                              className="glassmorphic hover:glow-green"
+                            >
+                              <Check className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={cancelEdit}
+                              className="glassmorphic hover:glow-red"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <h3 
+                              className="font-semibold text-foreground cursor-pointer hover:opacity-80"
+                              onClick={() => startEditCourse(course.id, course.title)}
+                            >
+                              {course.title}
+                            </h3>
+                            <div className="flex space-x-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="glassmorphic hover:glow-blue"
+                                onClick={() => startEditCourse(course.id, course.title)}
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="glassmorphic hover:glow-red"
+                                onClick={() => {
+                                  if (window.confirm(`Are you sure you want to delete "${course.title}"? This action cannot be undone.`)) {
+                                    setCourses(courses.filter(c => c.id !== course.id))
+                                    const newLog = {
+                                      id: activityLogs.length + 1,
+                                      user: 'Admin',
+                                      action: 'Deleted course',
+                                      target: course.title,
+                                      time: 'Just now',
+                                      type: 'remove'
+                                    }
+                                    setActivityLogs([newLog, ...activityLogs])
+                                  }
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </>
+                        )}
                       </div>
                       <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
                         <div>
@@ -332,28 +587,62 @@ export default function AdminDashboardPage() {
             </Card>
           </TabsContent>
 
-          {/* Teachers Tab */}
+          {/* Teachers Tab with Inline Editing */}
           <TabsContent value="teachers">
             <Card className="glassmorphic">
               <CardHeader>
                 <CardTitle>Teacher Management</CardTitle>
                 <CardDescription>
-                  {mockTeachers.length} teachers in the system
+                  {teachers.length} teachers in the system
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {mockTeachers.map((teacher) => (
+                  {teachers.map((teacher) => (
                     <div key={teacher.id} className="flex items-center justify-between p-4 glassmorphic rounded-lg">
-                      <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-3 flex-1">
                         <Avatar className="h-10 w-10">
                           <AvatarFallback className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 text-purple-400">
                             {teacher.name.split(' ').map(n => n[0]).join('')}
                           </AvatarFallback>
                         </Avatar>
-                        <div>
-                          <p className="font-medium text-foreground">{teacher.name}</p>
-                          <p className="text-sm text-muted-foreground">{teacher.email}</p>
+                        <div className="flex-1">
+                          {editingTeacher === teacher.id ? (
+                            <div className="flex items-center space-x-2">
+                              <Input
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                className="glassmorphic border-white/20"
+                                autoFocus
+                              />
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => saveEditTeacher(teacher.id)}
+                                className="glassmorphic hover:glow-green"
+                              >
+                                <Check className="w-4 h-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={cancelEdit}
+                                className="glassmorphic hover:glow-red"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <>
+                              <p 
+                                className="font-medium text-foreground cursor-pointer hover:opacity-80"
+                                onClick={() => startEditTeacher(teacher.id, teacher.name)}
+                              >
+                                {teacher.name}
+                              </p>
+                              <p className="text-sm text-muted-foreground">{teacher.email}</p>
+                            </>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center space-x-4">
@@ -369,6 +658,10 @@ export default function AdminDashboardPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent className="glassmorphic">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => startEditTeacher(teacher.id, teacher.name)}>
+                              <Edit className="w-4 h-4 mr-2" />
+                              Edit Name
+                            </DropdownMenuItem>
                             <DropdownMenuItem>
                               <UserPlus className="w-4 h-4 mr-2" />
                               Assign to Course
@@ -392,128 +685,214 @@ export default function AdminDashboardPage() {
             </Card>
           </TabsContent>
 
-          {/* Students Tab */}
+          {/* Students Tab with Inline Editing */}
           <TabsContent value="students">
             <Card className="glassmorphic">
               <CardHeader>
                 <CardTitle>Student Management</CardTitle>
                 <CardDescription>
-                  {mockStudents.length} students enrolled
+                  {students.length} students enrolled
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {mockStudents.map((student) => (
+                  {students.map((student) => (
                     <div key={student.id} className="flex items-center justify-between p-4 glassmorphic rounded-lg">
-                      <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-3 flex-1">
                         <Avatar className="h-10 w-10">
                           <AvatarFallback className="bg-gradient-to-br from-cyan-500/20 to-blue-500/20 text-cyan-400">
                             {student.name.split(' ').map(n => n[0]).join('')}
                           </AvatarFallback>
                         </Avatar>
-                        <div>
-                          <p className="font-medium text-foreground">{student.name}</p>
-                          <p className="text-sm text-muted-foreground">{student.email}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        <div className="text-right text-sm text-muted-foreground">
-                          <p>Section: {student.section}</p>
-                          <p>{student.courses} courses</p>
-                        </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="glassmorphic">
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent className="glassmorphic">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem>
-                              <UserPlus className="w-4 h-4 mr-2" />
-                              Enroll in Course
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <UserCheck className="w-4 h-4 mr-2" />
-                              Change Section
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <UserX className="w-4 h-4 mr-2" />
-                              Remove from Course
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-red-400">
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Remove Student
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Assignments Tab */}
-          <TabsContent value="assignments">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="glassmorphic">
-                <CardHeader>
-                  <CardTitle>Quick Actions</CardTitle>
-                  <CardDescription>Common administrative tasks</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Button className="w-full glassmorphic hover:glow-cyan justify-start">
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Assign Teacher to Section
-                  </Button>
-                  <Button className="w-full glassmorphic hover:glow-purple justify-start">
-                    <School className="w-4 h-4 mr-2" />
-                    Enroll Student in Section
-                  </Button>
-                  <Button className="w-full glassmorphic hover:glow-green justify-start">
-                    <UserCheck className="w-4 h-4 mr-2" />
-                    Transfer Student
-                  </Button>
-                  <Button className="w-full glassmorphic hover:glow-yellow justify-start">
-                    <Calendar className="w-4 h-4 mr-2" />
-                    Bulk Operations
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className="glassmorphic">
-                <CardHeader>
-                  <CardTitle>System Statistics</CardTitle>
-                  <CardDescription>Overview of the ELMS system</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center p-3 glassmorphic rounded-lg">
-                      <span className="text-foreground">Total Courses</span>
-                      <Badge variant="secondary">{mockCourses.length}</Badge>
-                    </div>
-                    <div className="flex justify-between items-center p-3 glassmorphic rounded-lg">
-                      <span className="text-foreground">Total Sections</span>
-                      <Badge variant="secondary">{mockCourses.reduce((acc, course) => acc + course.sections.length, 0)}</Badge>
-                    </div>
-                    <div className="flex justify-between items-center p-3 glassmorphic rounded-lg">
-                      <span className="text-foreground">Total Teachers</span>
-                      <Badge variant="secondary">{mockTeachers.length}</Badge>
-                    </div>
-                    <div className="flex justify-between items-center p-3 glassmorphic rounded-lg">
-                      <span className="text-foreground">Total Students</span>
-                      <Badge variant="secondary">{mockCourses.reduce((acc, course) => acc + course.totalStudents, 0)}</Badge>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </div>
-  )
-}
+                        <div className="flex-1">
+                          {editingStudent === student.id ? (
+                            <div className="flex items-center space-x-2">
+                              <Input
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                                              className="glassmorphic border-white/20"
+                                                              autoFocus
+                                                            />
+                                                            <Button 
+                                                              variant="ghost" 
+                                                              size="sm" 
+                                                              onClick={() => saveEditStudent(student.id)}
+                                                              className="glassmorphic hover:glow-green"
+                                                            >
+                                                              <Check className="w-4 h-4" />
+                                                            </Button>
+                                                            <Button 
+                                                              variant="ghost" 
+                                                              size="sm" 
+                                                              onClick={cancelEdit}
+                                                              className="glassmorphic hover:glow-red"
+                                                            >
+                                                              <X className="w-4 h-4" />
+                                                            </Button>
+                                                          </div>
+                                                        ) : (
+                                                          <>
+                                                            <p 
+                                                              className="font-medium text-foreground cursor-pointer hover:opacity-80"
+                                                              onClick={() => startEditStudent(student.id, student.name)}
+                                                            >
+                                                              {student.name}
+                                                            </p>
+                                                            <p className="text-sm text-muted-foreground">{student.email}</p>
+                                                          </>
+                                                        )}
+                                                      </div>
+                                                    </div>
+                                                    <div className="flex items-center space-x-4">
+                                                      <div className="text-right text-sm text-muted-foreground">
+                                                        <p>{student.courses} courses</p>
+                                                        <p>{student.section}</p>
+                                                      </div>
+                                                      <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                          <Button variant="ghost" size="sm" className="glassmorphic">
+                                                            <Edit className="w-4 h-4" />
+                                                          </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent className="glassmorphic">
+                                                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                          <DropdownMenuItem onClick={() => startEditStudent(student.id, student.name)}>
+                                                            <Edit className="w-4 h-4 mr-2" />
+                                                            Edit Name
+                                                          </DropdownMenuItem>
+                                                          <DropdownMenuItem>
+                                                            <UserCheck className="w-4 h-4 mr-2" />
+                                                            Assign to Section
+                                                          </DropdownMenuItem>
+                                                          <DropdownMenuItem>
+                                                            <UserX className="w-4 h-4 mr-2" />
+                                                            Remove from Section
+                                                          </DropdownMenuItem>
+                                                          <DropdownMenuSeparator />
+                                                          <DropdownMenuItem className="text-red-400">
+                                                            <Trash2 className="w-4 h-4 mr-2" />
+                                                            Remove Student
+                                                          </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                      </DropdownMenu>
+                                                    </div>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </CardContent>
+                                          </Card>
+                                        </TabsContent>
+                              
+                                        {/* Assignments Tab (Placeholder) */}
+                                        <TabsContent value="assignments">
+                                          <Card className="glassmorphic">
+                                            <CardHeader>
+                                              <CardTitle>Assignments</CardTitle>
+                                              <CardDescription>
+                                                Manage course assignments and teacher/student allocations.
+                                              </CardDescription>
+                                            </CardHeader>
+                                            <CardContent>
+                                              <div className="text-muted-foreground">
+                                                Assignment management features coming soon.
+                                              </div>
+                                            </CardContent>
+                                          </Card>
+                                        </TabsContent>
+                              
+                                        {/* Reports Tab (Charts) */}
+                                        <TabsContent value="reports">
+                                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                            {/* Course Growth Chart */}
+                                            <Card className="glassmorphic">
+                                              <CardHeader>
+                                                <CardTitle className="flex items-center">
+                                                  <TrendingUp className="w-5 h-5 mr-2 text-blue-400" />
+                                                  Course & Student Growth
+                                                </CardTitle>
+                                                <CardDescription>
+                                                  Track the growth of courses and student enrollment over time.
+                                                </CardDescription>
+                                              </CardHeader>
+                                              <CardContent>
+                                                <ResponsiveContainer width="100%" height={250}>
+                                                  <LineChart data={courseGrowthData}>
+                                                    <CartesianGrid strokeDasharray="3 3" />
+                                                    <XAxis dataKey="month" />
+                                                    <YAxis />
+                                                    <Tooltip />
+                                                    <Legend />
+                                                    <Line type="monotone" dataKey="courses" stroke="#06b6d4" name="Courses" />
+                                                    <Line type="monotone" dataKey="students" stroke="#a855f7" name="Students" />
+                                                  </LineChart>
+                                                </ResponsiveContainer>
+                                              </CardContent>
+                                            </Card>
+                              
+                                            {/* Teacher Load Chart */}
+                                            <Card className="glassmorphic">
+                                              <CardHeader>
+                                                <CardTitle className="flex items-center">
+                                                  <BarChart3 className="w-5 h-5 mr-2 text-purple-400" />
+                                                  Teacher Load
+                                                </CardTitle>
+                                                <CardDescription>
+                                                  Visualize teacher workload by number of students.
+                                                </CardDescription>
+                                              </CardHeader>
+                                              <CardContent>
+                                                <ResponsiveContainer width="100%" height={250}>
+                                                  <BarChart data={teacherLoadData}>
+                                                    <CartesianGrid strokeDasharray="3 3" />
+                                                    <XAxis dataKey="name" />
+                                                    <YAxis />
+                                                    <Tooltip />
+                                                    <Legend />
+                                                    <Bar dataKey="load" fill="#a855f7" name="Student Load" />
+                                                  </BarChart>
+                                                </ResponsiveContainer>
+                                              </CardContent>
+                                            </Card>
+                                          </div>
+                                        </TabsContent>
+                              
+                                        {/* Activity Tab */}
+                                        <TabsContent value="activity">
+                                          <Card className="glassmorphic">
+                                            <CardHeader>
+                                              <CardTitle>Recent Activity</CardTitle>
+                                              <CardDescription>
+                                                System logs and recent actions performed by admin.
+                                              </CardDescription>
+                                            </CardHeader>
+                                            <CardContent>
+                                              <div className="space-y-3">
+                                                {activityLogs.map((log) => (
+                                                  <div key={log.id} className="flex items-center justify-between p-3 glassmorphic rounded-lg">
+                                                    <div className="flex items-center space-x-3">
+                                                      <Avatar className="h-8 w-8">
+                                                        <AvatarFallback className="bg-gradient-to-br from-orange-500/20 to-yellow-500/20 text-orange-400">
+                                                          {log.user.charAt(0).toUpperCase()}
+                                                        </AvatarFallback>
+                                                      </Avatar>
+                                                      <div>
+                                                        <span className="font-medium text-foreground">{log.user}</span>
+                                                        <span className="mx-2 text-muted-foreground">{log.action}</span>
+                                                        <span className="font-semibold text-cyan-400">{log.target}</span>
+                                                      </div>
+                                                    </div>
+                                                    <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+                                                      <Clock className="w-3 h-3" />
+                                                      <span>{log.time}</span>
+                                                    </div>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </CardContent>
+                                          </Card>
+                                        </TabsContent>
+                                      </Tabs>
+                                    </div>
+                                  </div>
+                                )
+                              }
