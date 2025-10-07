@@ -1,7 +1,6 @@
-
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ChatMessage } from '@/types'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -9,6 +8,8 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Send, MessageCircle, Users } from "lucide-react"
+import io from "socket.io-client"
+import type { Socket } from "socket.io-client"
 
 interface ClassChatPanelProps {
   messages: ChatMessage[]
@@ -19,22 +20,67 @@ interface ClassChatPanelProps {
  * ClassChatPanel component provides real-time class discussion functionality
  * Displays chat messages with user avatars and allows sending new messages
  */
-export function ClassChatPanel({ messages: initialMessages, currentUser = "You" }: ClassChatPanelProps) {
+export function ClassChatPanel({ messages: initialMessages, currentUser = "You", roomId, currentUserId }: ClassChatPanelProps & { roomId?: number, currentUserId?: number }) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
   const [input, setInput] = useState('')
+  const socketRef = useRef<ReturnType<typeof io> | null>(null)
+  // keep a ref to the scrollable messages container and sync prop changes -> state
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null)
 
-  const handleSendMessage = () => {
-    if (!input.trim()) return
+  useEffect(() => {
+    // sync when parent updates initialMessages
+    setMessages(initialMessages ?? [])
+  }, [initialMessages])
 
-    const newMessage: ChatMessage = {
-      id: Date.now().toString(),
-      sender: currentUser,
-      message: input,
-      timestamp: new Date().toISOString()
+  useEffect(() => {
+    // auto-scroll to bottom when messages change
+    const el = messagesContainerRef.current ?? document.querySelector('.class-chat-messages') as HTMLElement | null
+    if (!el) return
+    // small timeout to allow DOM updates
+    setTimeout(() => {
+      el.scrollTop = el.scrollHeight
+    }, 50)
+  }, [messages])
+
+  // Note: attach the ref to your scrollable container:
+  // <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 class-chat-messages">
+  useEffect(() => {
+    // fetch initial messages from server if roomId provided
+    async function load() {
+      if (!roomId) return
+      const res = await fetch(`${process.env.NEXT_PUBLIC_CHAT_URL || "http://localhost:4000"}/api/chat/rooms/${roomId}/messages`)
+      if (res.ok) {
+        const msgs = await res.json()
+        setMessages(msgs)
+      }
     }
+    load()
+  }, [roomId])
 
-    setMessages(prev => [...prev, newMessage])
-    setInput('')
+  useEffect(() => {
+    if (!roomId) return
+    const socket = io(process.env.NEXT_PUBLIC_CHAT_URL || "http://localhost:4000")
+    socketRef.current = socket
+    socket.emit("joinRoom", { roomId, userId: currentUserId })
+
+    socket.on("message", (msg: ChatMessage) => {
+      setMessages(prev => [...prev, msg])
+    })
+
+    return () => {
+      socket.emit("leaveRoom", { roomId })
+      socket.disconnect()
+      socketRef.current = null
+    }
+  }, [roomId])
+
+  const handleSendMessage = async () => {
+    if (!input.trim()) return
+    const payload = { roomId, senderId: currentUserId, message: input }
+    // send via socket for real-time
+    socketRef.current?.emit("sendMessage", payload)
+    // optimistic update handled by socket echo — you can also optimistically push:
+    setInput("")
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
